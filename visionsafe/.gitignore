@@ -1,0 +1,68 @@
+# VisionSafe — gitignore
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+.env
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+env/
+
+# --- Models (large binaries — store in DVC or object storage) ---
+models/*.pt
+models/*.onnx
+models/*.engine
+!models/.gitkeep
+
+# --- Videos ---
+videos/*.mp4
+videos/*.avi
+videos/*.mkv
+videos/samples/*.mp4
+!videos/.gitkeep
+!videos/samples/.gitkeep
+
+# --- Evidence frames ---
+evidence/
+!evidence/.gitkeep
+
+# --- Datasets ---
+ml/datasets/*/images/
+ml/datasets/*/labels/
+!ml/datasets/.gitkeep
+
+# --- Node / Frontend ---
+node_modules/
+frontend/dist/
+frontend/.env
+
+# --- IDE ---
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# --- OS ---
+.DS_Store
+Thumbs.db
+
+# --- Logs ---
+*.log
+logs/
+
+# --- Docker volumes ---
+.docker/
+
+# --- Alembic local ---
+backend/alembic/versions/*.pyc
+
+# --- Test artifacts ---
+.coverage
+htmlcov/
+.pytest_cache/

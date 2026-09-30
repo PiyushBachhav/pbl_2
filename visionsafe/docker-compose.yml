@@ -1,0 +1,67 @@
+services:
+  # ─────────────────────────────────
+  # PostgreSQL
+  # ─────────────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: visionsafe_db
+    environment:
+      POSTGRES_USER: visionsafe
+      POSTGRES_PASSWORD: visionsafe
+      POSTGRES_DB: visionsafe
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U visionsafe"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ─────────────────────────────────
+  # FastAPI Backend
+  # ─────────────────────────────────
+  backend:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.backend
+    container_name: visionsafe_backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://visionsafe:visionsafe@postgres:5432/visionsafe
+      - DATABASE_URL_SYNC=postgresql://visionsafe:visionsafe@postgres:5432/visionsafe
+      - DEVICE=cpu
+      - MODEL_PATH=models/yolov8n.pt
+      - EVIDENCE_DIR=/app/evidence
+      - VIDEO_DIR=/app/videos
+      - FRONTEND_URL=http://localhost:5173
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./models:/app/models
+      - ./videos:/app/videos
+      - ./evidence:/app/evidence
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ─────────────────────────────────
+  # React Frontend (dev server)
+  # ─────────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: ../docker/Dockerfile.frontend
+    container_name: visionsafe_frontend
+    ports:
+      - "5173:5173"
+    environment:
+      - VITE_API_URL=http://localhost:8000
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:

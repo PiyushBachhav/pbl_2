@@ -1,0 +1,41 @@
+# VisionSafe V1 — Dataset Configuration
+#
+# Four classes only in V1. Additional classes can be added later
+# without changing the safety engine (only the model and this file).
+#
+# Architecture note:
+#   The detector uses CLASS_MAP in detector.py which must stay in sync
+#   with the class names here.
+#
+# Dataset structure expected:
+#   datasets/construction_ppe/
+#     images/
+#       train/   *.jpg, *.png
+#       val/     *.jpg, *.png
+#       test/    *.jpg, *.png
+#     labels/
+#       train/   *.txt (YOLO format: class cx cy w h, normalized)
+#       val/     *.txt
+#       test/    *.txt
+#
+# Recommended public datasets:
+#   - Safety Helmet Detection (Kaggle)
+#   - Construction Site Safety (Roboflow)
+#   - Custom labeled dataset via Roboflow / CVAT
+#
+# The actual path is relative to where you run train.py.
+# Do NOT use absolute Windows paths.
+
+path: ml/datasets/construction_ppe
+
+train: images/train
+val:   images/val
+test:  images/test
+
+nc: 4  # Number of classes
+
+names:
+  0: person
+  1: helmet
+  2: vest
+  3: forklift
