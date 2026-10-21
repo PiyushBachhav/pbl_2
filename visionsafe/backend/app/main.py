@@ -19,6 +19,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core.config import settings
 from app.core.logging import configure_logging
 from app.db.database import engine, Base
+from app.db import models  # Ensures all ORM models are registered with Base.metadata
 from app.api.routes import cameras, videos, zones, rules, events, analytics, workers
 
 
@@ -67,10 +68,17 @@ def create_app() -> FastAPI:
     app.include_router(analytics.router, prefix=prefix)
     app.include_router(workers.router, prefix=prefix)
 
-    # --- Static evidence frames ---
+    # --- WebSocket real-time event streaming ---
+    from app.websocket import ws_router
+    app.include_router(ws_router, prefix=prefix)
+    app.include_router(ws_router)
+
+    # --- Static evidence frames & videos ---
     import os
     os.makedirs(settings.EVIDENCE_DIR, exist_ok=True)
+    os.makedirs(settings.VIDEO_DIR, exist_ok=True)
     app.mount("/evidence", StaticFiles(directory=settings.EVIDENCE_DIR), name="evidence")
+    app.mount("/videos", StaticFiles(directory=settings.VIDEO_DIR), name="videos")
 
     @app.get("/health", tags=["health"])
     async def health() -> dict:

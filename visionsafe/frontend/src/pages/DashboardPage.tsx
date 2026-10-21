@@ -49,29 +49,63 @@ export default function DashboardPage() {
   const [recentEvents, setRecentEvents] = useState<SafetyEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [backendOnline, setBackendOnline] = useState<boolean | null>(null);
+  const [wsConnected, setWsConnected] = useState(false);
+
+  const load = async () => {
+    try {
+      const [sum, viol, evts] = await Promise.all([
+        getSummary(),
+        getViolationsByType(),
+        getEvents({ limit: 8 }),
+      ]);
+      setSummary(sum);
+      setViolations(viol);
+      setRecentEvents(evts);
+      setBackendOnline(true);
+    } catch {
+      setBackendOnline(false);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function load() {
-      setLoading(true);
-      try {
-        const [sum, viol, evts] = await Promise.all([
-          getSummary(),
-          getViolationsByType(),
-          getEvents({ limit: 8 }),
-        ]);
-        setSummary(sum);
-        setViolations(viol);
-        setRecentEvents(evts);
-        setBackendOnline(true);
-      } catch {
-        setBackendOnline(false);
-      } finally {
-        setLoading(false);
-      }
-    }
     load();
     const interval = setInterval(load, 15000);
-    return () => clearInterval(interval);
+
+    // Live WebSocket alert subscription
+    const wsUrl = (import.meta.env?.VITE_API_URL ?? 'http://localhost:8000')
+      .replace(/^http/, 'ws') + '/api/ws/events';
+    let ws: WebSocket | null = null;
+    try {
+      ws = new WebSocket(wsUrl);
+      ws.onopen = () => setWsConnected(true);
+      ws.onclose = () => setWsConnected(false);
+      ws.onerror = () => setWsConnected(false);
+      ws.onmessage = (e) => {
+        try {
+          const data = JSON.parse(e.data);
+          if (data.type === 'SAFETY_EVENT' && data.event) {
+            setRecentEvents(prev => [data.event, ...prev.slice(0, 7)]);
+            setSummary(prev => prev ? ({
+              ...prev,
+              total_events: prev.total_events + 1,
+              open_events: prev.open_events + 1,
+              high_critical_events: (data.event.severity === 'HIGH' || data.event.severity === 'CRITICAL')
+                ? prev.high_critical_events + 1
+                : prev.high_critical_events,
+            }) : prev);
+          } else if (data.type === 'JOB_COMPLETED') {
+            load();
+          }
+        } catch {}
+      };
+    } catch {}
+
+    return () => {
+      clearInterval(interval);
+      if (ws) ws.close();
+    };
   }, []);
 
   const formatEventType = (t: string) =>
@@ -86,13 +120,21 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-slate-100">Safety Dashboard</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Real-time industrial safety monitoring</p>
+          <p className="text-sm text-slate-500 mt-0.5">Real-time industrial safety monitoring & intelligence</p>
         </div>
-        <div className="flex items-center gap-2">
-          <span className={`w-2 h-2 rounded-full ${backendOnline === false ? 'bg-red-500' : 'bg-green-400 animate-pulse'}`} />
-          <span className="text-xs text-slate-500">
-            {backendOnline === null ? 'Connecting…' : backendOnline ? 'Backend Online' : 'Backend Offline'}
-          </span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1.5 bg-surface px-2.5 py-1 rounded-full border border-surface-border text-xs">
+            <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-cyan-400 animate-pulse' : 'bg-slate-600'}`} />
+            <span className="text-slate-400 font-mono text-[11px]">
+              {wsConnected ? 'LIVE STREAM' : 'POLLING'}
+            </span>
+          </div>
+          <div className="flex items-center gap-1.5">
+            <span className={`w-2 h-2 rounded-full ${backendOnline === false ? 'bg-red-500' : 'bg-green-400'}`} />
+            <span className="text-xs text-slate-500">
+              {backendOnline === null ? 'Connecting…' : backendOnline ? 'Backend Online' : 'Backend Offline'}
+            </span>
+          </div>
         </div>
       </div>
 

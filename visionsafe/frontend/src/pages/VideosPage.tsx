@@ -1,6 +1,20 @@
 import { useEffect, useState, useRef } from 'react';
 import { getVideos, uploadVideo, startProcessing, type Video } from '../services/api';
-import { Upload, Play, Clock, Film, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
+import {
+  Upload,
+  Play,
+  Clock,
+  Film,
+  Loader2,
+  CheckCircle2,
+  AlertCircle,
+  Download,
+  Eye,
+  X,
+  RefreshCw,
+} from 'lucide-react';
+
+const API_BASE = import.meta.env?.VITE_API_URL ?? 'http://localhost:8000';
 
 function StatusBadge({ status }: { status: string | null }) {
   if (!status) return <span className="text-slate-600 text-xs">—</span>;
@@ -24,13 +38,14 @@ export default function VideosPage() {
   const [videos, setVideos] = useState<Video[]>([]);
   const [uploading, setUploading] = useState(false);
   const [uploadError, setUploadError] = useState('');
+  const [activeModalVideo, setActiveModalVideo] = useState<{ url: string; title: string } | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const load = () => getVideos().then(setVideos).catch(() => {});
 
   useEffect(() => {
     load();
-    const interval = setInterval(load, 5000);
+    const interval = setInterval(load, 3000);
     return () => clearInterval(interval);
   }, []);
 
@@ -64,7 +79,7 @@ export default function VideosPage() {
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Videos</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Upload MP4 files for safety analysis</p>
+          <p className="text-sm text-slate-500 mt-0.5">Upload construction site footage for safety analysis</p>
         </div>
         <div>
           <input
@@ -106,74 +121,190 @@ export default function VideosPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          {videos.map(video => (
-            <div key={video.id} className="card space-y-3">
-              {/* Thumbnail placeholder */}
-              <div className="w-full h-36 bg-surface rounded-lg border border-surface-border flex items-center justify-center">
-                <Film size={32} className="text-slate-600" />
-              </div>
+          {videos.map(video => {
+            const hasAnnotated = Boolean(video.annotated_video_url);
+            const isCompleted = video.job?.status === 'COMPLETED';
+            const isRunning = video.job?.status === 'RUNNING';
 
-              <div>
-                <p className="font-medium text-slate-200 text-sm truncate">{video.filename}</p>
-                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                  {video.duration_seconds && (
-                    <span className="metric-pill text-slate-400">
-                      <Clock size={10} />
-                      {video.duration_seconds.toFixed(1)}s
+            return (
+              <div key={video.id} className="card space-y-3 flex flex-col justify-between">
+                <div className="space-y-3">
+                  {/* Thumbnail / Preview Area */}
+                  <div
+                    className="w-full h-36 bg-surface rounded-lg border border-surface-border flex flex-col items-center justify-center relative overflow-hidden group cursor-pointer"
+                    onClick={() => {
+                      if (hasAnnotated) {
+                        setActiveModalVideo({
+                          url: `${API_BASE}${video.annotated_video_url}`,
+                          title: `Annotated: ${video.filename}`,
+                        });
+                      } else {
+                        setActiveModalVideo({
+                          url: `${API_BASE}/videos/${video.filename}`,
+                          title: video.filename,
+                        });
+                      }
+                    }}
+                  >
+                    <Film size={32} className="text-slate-600 group-hover:text-brand-400 transition-colors" />
+                    <span className="text-[11px] text-slate-500 mt-2 flex items-center gap-1 group-hover:text-brand-300">
+                      <Play size={10} /> Click to preview
                     </span>
-                  )}
-                  {video.fps && (
-                    <span className="metric-pill text-slate-400">
-                      {video.fps.toFixed(0)} fps
-                    </span>
-                  )}
-                  {video.width && (
-                    <span className="metric-pill text-slate-400">
-                      {video.width}×{video.height}
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Job status */}
-              {video.job && (
-                <div className="bg-surface rounded-lg p-2.5 space-y-1.5">
-                  <div className="flex items-center justify-between">
-                    <StatusBadge status={video.job.status} />
-                    {video.job.fps_achieved && (
-                      <span className="text-xs text-slate-500 font-mono">
-                        {video.job.fps_achieved.toFixed(1)} FPS
+                    {hasAnnotated && (
+                      <span className="absolute top-2 right-2 bg-brand-900/80 text-brand-300 border border-brand-700/50 text-[10px] px-1.5 py-0.5 rounded">
+                        Annotated ✓
                       </span>
                     )}
                   </div>
-                  {video.job.status === 'RUNNING' && video.job.progress !== null && (
-                    <div>
-                      <div className="h-1 bg-surface-border rounded-full overflow-hidden">
-                        <div
-                          className="h-full bg-brand-600 rounded-full transition-all duration-500"
-                          style={{ width: `${video.job.progress}%` }}
-                        />
+
+                  <div>
+                    <p className="font-medium text-slate-200 text-sm truncate" title={video.filename}>
+                      {video.filename}
+                    </p>
+                    <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                      {video.duration_seconds && (
+                        <span className="metric-pill text-slate-400 text-xs">
+                          <Clock size={10} />
+                          {video.duration_seconds.toFixed(1)}s
+                        </span>
+                      )}
+                      {video.fps && (
+                        <span className="metric-pill text-slate-400 text-xs">
+                          {video.fps.toFixed(0)} fps
+                        </span>
+                      )}
+                      {video.width && (
+                        <span className="metric-pill text-slate-400 text-xs">
+                          {video.width}×{video.height}
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Job status */}
+                  {video.job && (
+                    <div className="bg-surface rounded-lg p-2.5 space-y-1.5 border border-surface-border/50">
+                      <div className="flex items-center justify-between">
+                        <StatusBadge status={video.job.status} />
+                        {video.job.fps_achieved && (
+                          <span className="text-xs text-slate-500 font-mono">
+                            {video.job.fps_achieved.toFixed(1)} FPS
+                          </span>
+                        )}
                       </div>
-                      <p className="text-xs text-slate-600 mt-1">{video.job.progress.toFixed(0)}%</p>
+                      {isRunning && video.job.progress !== null && (
+                        <div>
+                          <div className="h-1 bg-surface-border rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-brand-500 rounded-full transition-all duration-300"
+                              style={{ width: `${video.job.progress}%` }}
+                            />
+                          </div>
+                          <div className="flex justify-between items-center text-xs text-slate-500 mt-1">
+                            <span>Processing frames...</span>
+                            <span>{video.job.progress.toFixed(0)}%</span>
+                          </div>
+                        </div>
+                      )}
+                      {video.job.error && (
+                        <p className="text-xs text-red-400 leading-tight">{video.job.error}</p>
+                      )}
                     </div>
                   )}
-                  {video.job.error && (
-                    <p className="text-xs text-red-400">{video.job.error}</p>
+                </div>
+
+                {/* Actions */}
+                <div className="pt-2 border-t border-surface-border/50 space-y-2">
+                  {(!video.job || video.job.status === 'FAILED') && (
+                    <button
+                      className="btn-primary w-full justify-center text-xs py-2"
+                      onClick={() => handleProcess(video.id)}
+                    >
+                      <Play size={13} /> Run Safety Analysis
+                    </button>
+                  )}
+
+                  {isCompleted && (
+                    <div className="space-y-1.5">
+                      {hasAnnotated && (
+                        <div className="flex gap-2">
+                          <button
+                            className="btn-primary flex-1 justify-center text-xs py-2"
+                            onClick={() => setActiveModalVideo({
+                              url: `${API_BASE}${video.annotated_video_url}`,
+                              title: `Annotated: ${video.filename}`,
+                            })}
+                          >
+                            <Eye size={13} /> Watch Annotated
+                          </button>
+                          <a
+                            href={`${API_BASE}${video.annotated_video_url}`}
+                            download
+                            className="btn-ghost px-2.5 py-2 text-xs flex items-center justify-center hover:text-brand-400"
+                            title="Download Annotated MP4"
+                          >
+                            <Download size={13} />
+                          </a>
+                        </div>
+                      )}
+                      <button
+                        className="btn-ghost w-full justify-center text-xs py-1.5 text-slate-400"
+                        onClick={() => handleProcess(video.id)}
+                      >
+                        <RefreshCw size={11} /> Re-Analyze
+                      </button>
+                    </div>
                   )}
                 </div>
-              )}
+              </div>
+            );
+          })}
+        </div>
+      )}
 
-              {/* Actions */}
-              {(!video.job || video.job.status === 'FAILED') && (
-                <button
-                  className="btn-primary w-full justify-center text-sm"
-                  onClick={() => handleProcess(video.id)}
-                >
-                  <Play size={14} /> Analyze Video
-                </button>
-              )}
+      {/* Video Player Modal */}
+      {activeModalVideo && (
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setActiveModalVideo(null)}
+        >
+          <div
+            className="card w-full max-w-4xl p-4 bg-slate-900 border border-slate-700 animate-slide-in space-y-3"
+            onClick={e => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-2 border-b border-surface-border">
+              <h3 className="font-semibold text-slate-200 text-sm flex items-center gap-2">
+                <Film size={16} className="text-brand-400" />
+                {activeModalVideo.title}
+              </h3>
+              <button
+                onClick={() => setActiveModalVideo(null)}
+                className="p-1 hover:bg-surface-hover rounded text-slate-400 hover:text-white"
+              >
+                <X size={16} />
+              </button>
             </div>
-          ))}
+            <div className="bg-black rounded-lg overflow-hidden aspect-video flex items-center justify-center">
+              <video
+                src={activeModalVideo.url}
+                controls
+                autoPlay
+                className="w-full h-full object-contain"
+              >
+                Your browser does not support the video tag.
+              </video>
+            </div>
+            <div className="flex justify-between items-center text-xs text-slate-500 pt-1">
+              <span>Playing from VisionSafe media service</span>
+              <a
+                href={activeModalVideo.url}
+                download
+                className="text-brand-400 hover:underline flex items-center gap-1"
+              >
+                <Download size={12} /> Download Video File
+              </a>
+            </div>
+          </div>
         </div>
       )}
     </div>

@@ -237,6 +237,33 @@ def save_evidence_frame(
     logger.info("Evidence frame saved: %s", path)
 
 
+def draw_proximity_lines(
+    frame: np.ndarray,
+    proximity_events: list[dict],
+) -> np.ndarray:
+    """
+    Draw warning line and distance label between person and forklift.
+    proximity_events contains dicts with keys:
+        person_pt: [x, y], forklift_pt: [x, y], distance: float
+    """
+    out = frame.copy()
+    for ev in proximity_events:
+        ppt = ev.get("person_pt") or ev.get("person_foot")
+        fpt = ev.get("forklift_pt") or ev.get("forklift_center")
+        dist = ev.get("distance_pixels") or ev.get("distance", 0.0)
+        if ppt and fpt:
+            p1 = (int(ppt[0]), int(ppt[1]))
+            p2 = (int(fpt[0]), int(fpt[1]))
+            # Red dotted/warning line
+            cv2.line(out, p1, p2, (0, 0, 255), 2, cv2.LINE_AA)
+            mid = ((p1[0] + p2[0]) // 2, (p1[1] + p2[1]) // 2)
+            cv2.putText(
+                out, f"DANGER: {dist:.0f}px", mid,
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 0, 255), 2, cv2.LINE_AA
+            )
+    return out
+
+
 # ─────────────────────────────────────────
 # Helpers
 # ─────────────────────────────────────────

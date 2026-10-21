@@ -101,6 +101,7 @@ class FileVideoSource(VideoSource):
         self._frame_skip = max(1, frame_skip)
         self._cap: Optional[cv2.VideoCapture] = None
         self._metadata: Optional[VideoMetadata] = None
+        self.last_frame: Optional[np.ndarray] = None
 
     def open(self) -> None:
         if not self._path.exists():
@@ -162,6 +163,7 @@ class FileVideoSource(VideoSource):
                 break
 
             if frame_idx % self._frame_skip == 0:
+                self.last_frame = frame
                 timestamp = frame_idx / fps
                 yield frame_idx, timestamp, frame
 

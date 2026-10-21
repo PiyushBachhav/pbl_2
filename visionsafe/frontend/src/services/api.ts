@@ -85,6 +85,7 @@ export interface Video {
   width: number | null;
   height: number | null;
   total_frames: number | null;
+  annotated_video_url?: string | null;
   job: {
     status: string | null;
     progress: number | null;

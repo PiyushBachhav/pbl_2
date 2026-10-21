@@ -186,6 +186,10 @@ class FrameResult:
     tracking_time_ms: float = 0.0
 
     @property
+    def tracking_ms(self) -> float:
+        return self.tracking_time_ms
+
+    @property
     def persons(self) -> list[TrackedObject]:
         return [t for t in self.tracked_objects if t.class_name == "person"]
 

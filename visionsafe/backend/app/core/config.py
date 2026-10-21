@@ -12,7 +12,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "../.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -20,12 +20,12 @@ class Settings(BaseSettings):
 
     # --- Database ---
     DATABASE_URL: str = Field(
-        default="postgresql+asyncpg://visionsafe:visionsafe@localhost:5432/visionsafe",
-        description="Async PostgreSQL connection string (asyncpg driver).",
+        default="sqlite+aiosqlite:///./visionsafe.db",
+        description="Async SQLite connection string (aiosqlite driver).",
     )
     DATABASE_URL_SYNC: str = Field(
-        default="postgresql://visionsafe:visionsafe@localhost:5432/visionsafe",
-        description="Sync PostgreSQL connection string (for Alembic).",
+        default="sqlite:///./visionsafe.db",
+        description="Sync SQLite connection string (for Alembic).",
     )
 
     # --- Application ---

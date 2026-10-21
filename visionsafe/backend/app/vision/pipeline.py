@@ -39,6 +39,8 @@ from app.vision.annotator import (
     draw_tracked_objects,
     draw_zones,
     draw_metrics,
+    draw_event_overlay,
+    draw_proximity_lines,
 )
 
 logger = logging.getLogger(__name__)
@@ -272,21 +274,29 @@ class AnnotatedVideoWriter:
         frame_result: FrameResult,
         fps: float = 0.0,
         zones: Optional[list[dict]] = None,
-    ) -> None:
+        events: Optional[list[dict]] = None,
+        proximity_events: Optional[list[dict]] = None,
+    ) -> np.ndarray:
         """
-        Annotate frame with tracked objects and write to output.
+        Annotate frame with tracked objects, zones, proximity lines, alerts, and write to output.
 
         Args:
-            frame:        Raw BGR frame from the video source.
-            frame_result: Pipeline output for this frame.
-            fps:          Current processing FPS (for overlay).
-            zones:        Optional list of zone dicts for polygon drawing.
+            frame:            Raw BGR frame from the video source.
+            frame_result:     Pipeline output for this frame.
+            fps:              Current processing FPS (for overlay).
+            zones:            Optional list of zone dicts for polygon drawing.
+            events:           Optional active safety event dicts for warning banner.
+            proximity_events: Optional proximity danger details for line drawing.
         """
         out = frame.copy()
 
         # Draw zones first (background)
         if zones:
             out = draw_zones(out, zones)
+
+        # Draw proximity warning lines
+        if proximity_events:
+            out = draw_proximity_lines(out, proximity_events)
 
         # Draw tracked objects with PPE status
         ppe_map = {
@@ -295,6 +305,10 @@ class AnnotatedVideoWriter:
             if p.ppe_state
         }
         out = draw_tracked_objects(out, frame_result.tracked_objects, ppe_map)
+
+        # Draw event warning banners
+        if events:
+            out = draw_event_overlay(out, events)
 
         # Draw metrics overlay
         out = draw_metrics(
@@ -306,6 +320,7 @@ class AnnotatedVideoWriter:
         )
 
         self._writer.write(out)
+        return out
 
     def close(self) -> None:
         if self._writer is not None:
